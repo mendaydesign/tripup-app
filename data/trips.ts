@@ -2,6 +2,7 @@ export type Traveller = {
   id: string;
   initials: string;
   color: string;
+  name?: string;
 };
 
 export type FeedItemData =
@@ -22,9 +23,11 @@ export const mockTrip: Trip = {
   id: '1',
   name: 'Lisbon Group',
   travellers: [
-    { id: '1', initials: 'AR', color: '#FF9944' },
-    { id: '2', initials: 'LM', color: '#44AAFF' },
-    { id: '3', initials: 'KR', color: '#FA9DFD' },
+    { id: '1', initials: 'HM', color: '#FF9944', name: 'Harry Menday' },
+    { id: '2', initials: 'LJ', color: '#44AAFF', name: 'Lily Juggins' },
+    { id: '3', initials: 'JB', color: '#FA9DFD', name: 'Joe Boustead' },
+    { id: '4', initials: 'AS', color: '#CF9DFD', name: 'Aidan Stephenson' },
+    { id: '5', initials: 'CS', color: '#14AE5C', name: 'Courtney Smith' },
   ],
   todayActivityCount: 5,
   todayDate: { day: '09', month: 'Jun' },

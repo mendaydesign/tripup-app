@@ -14,10 +14,12 @@ import AvatarStack from '../components/AvatarStack';
 import SegmentedControl from '../components/SegmentedControl';
 import { CalendarQuickAction, PollQuickAction } from '../components/QuickActionCard';
 import FeedItem from '../components/FeedItem';
+import ParticipantSheet from '../components/ParticipantSheet';
 import { mockTrip } from '../data/trips';
 
 export default function GroupHomeScreen() {
   const [activeTab, setActiveTab] = useState('feed');
+  const [sheetVisible, setSheetVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const trip = mockTrip;
 
@@ -52,12 +54,19 @@ export default function GroupHomeScreen() {
             size={30}
             overlap={10}
             showAdd
+            onAdd={() => setSheetVisible(true)}
           />
         </View>
       </View>
 
       {/* Segmented control — stays fixed while content scrolls */}
       <SegmentedControl activeKey={activeTab} onChange={setActiveTab} />
+
+      <ParticipantSheet
+        visible={sheetVisible}
+        onClose={() => setSheetVisible(false)}
+        travellers={trip.travellers}
+      />
 
       {/* Scrollable content */}
       <ScrollView
