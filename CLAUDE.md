@@ -30,20 +30,21 @@ across its core flows (see §5). It must:
 - Hang together as one coherent app — shared components, consistent navigation,
   no dead-ends.
 
-Reference designs are added to `/design/` as the build progresses (one image
-per screen). For any screen with a reference image, **the image is the spec** —
-build to match it. The brand spec in §4 governs styling; the reference governs
-layout and content.
+Reference designs and wireframes live in `/Wireframes/`. For any screen with a
+reference image, **the image is the spec** — build to match it. The brand spec
+in §4 governs styling; the reference governs layout and content.
 
 ## 3. Tech stack & conventions
 
-- **Expo** (managed workflow) + **TypeScript** — blank TS template.
+- **Expo SDK 54** (managed workflow) + **TypeScript** — blank TS template.
 - **React Navigation** — bottom tab navigator for the app shell; the in-trip
   Feed / Itinerary / Chat / Expenses row is a custom segmented control, not a
   separate navigator, so it matches the design.
 - **react-native-web compatible.** Avoid native-only dependencies. Test the web
   build (`w` in Expo) alongside the phone throughout — do not leave web testing
   to the end.
+- **expo-image-picker** — installed for camera/photo library access (receipt
+  scanning). Already configured in `app.json` with camera + photos permissions.
 - **Functional components + hooks only.** No class components.
 - **Design tokens are centralised** in `/theme` (see §4). Never hardcode a hex,
   font size, spacing or radius in a component — always pull from the theme.
@@ -52,20 +53,28 @@ layout and content.
   screens lives or dies on shared primitives — Avatar, AvatarStack, Card,
   Badge, SectionHeader, ListRow, TabBar, SegmentedControl, etc. Build the
   primitive once, reuse it across screens.
-- Suggested structure:
+- Actual structure (as built):
   ```
-  /theme         colors.ts, typography.ts, spacing.ts, radius.ts, index.ts
-  /components     reusable primitives (Avatar, Card, Badge, ListRow, TabBar…)
-  /screens        one folder/file per screen
-  /navigation     tab navigator + segmented control
-  /data           mock data
-  /assets/fonts   Open Sauce One .ttf files
-  /design         reference screenshots (not shipped)
+  /theme                  colors.ts, typography.ts, spacing.ts, radius.ts, index.ts
+  /components             reusable primitives (see §8 for full list)
+  /screens
+    GroupHomeScreen.tsx   main trip workspace — hosts all sub-tab content + flows
+    ItineraryView.tsx     full-screen itinerary tab takeover
+    /CreateExpenseRequest
+      Screen1.tsx         input method selection (Scan / Manual)
+      ScanReceiptScreen.tsx  camera/library picker via expo-image-picker
+      Screen3.tsx         participant selection ("Who's chipping in?")
+      Screen4.tsx         expense detail — editable name, receipt, splits, items
+  /navigation             tab navigator + segmented control
+  /data                   mock data (trips.ts)
+  /assets/fonts           Open Sauce One .ttf files
+  /assets/Icons           SVG icons
+  /Wireframes             reference screenshots (not shipped)
+  /Target Designs         target design screenshots (not shipped)
   ```
-- **Desktop web layout:** an Expo web app fills the whole browser window and
-  looks like a stretched website. Constrain the app to a phone-width column
-  (≈ 390px) **centred** on screen with a neutral backdrop, so a reviewer on a
-  laptop still perceives a mobile app.
+- **Desktop web layout:** constrain the app to a phone-width column (≈ 390px)
+  **centred** on screen with a neutral backdrop, so a reviewer on a laptop still
+  perceives a mobile app.
 - Mock all data locally in `/data`. No backend — this is a prototype.
 
 ## 4. Design system  ← the fixed foundation
@@ -129,11 +138,23 @@ across every screen.
 
 Soft, rounded — part of the friendly brand feel.
 
+### Card convention — FeedItem style
+
+List/feed cards use a shared visual language:
+- `backgroundColor: '#F7F7F7'`
+- `borderRadius: radius.sm` (10px)
+- `paddingHorizontal: spacing.sm` (10px)
+- `paddingVertical: 14`
+- `marginBottom: spacing.sm` between cards (applied to all but the last)
+
+Use this pattern for any new card-style list items so everything stays
+visually consistent.
+
 ## 5. App scope & information architecture
 
 The redesign spans TripUp's core group-travel experience. Use this as the IA
 skeleton; build the specific screens from their reference designs as they're
-added to `/design`.
+added to `/Wireframes`.
 
 **Bottom tab shell**
 - **Home** — overview across the user's trips.
@@ -162,16 +183,12 @@ placeholder rather than a dead-end.
 ## 6. Build process — one screen at a time
 
 For each screen:
-1. I add its reference design to `/design/` (or describe it in chat).
+1. I add its reference design to `/Wireframes/` (or describe it in chat).
 2. Build it to match, drawing **all** styling from the `/theme` tokens.
 3. Reuse existing components; extract any new repeated pattern into
    `/components` so later screens inherit it.
 4. Wire its navigation into the shell.
 5. Check it on **web and phone**, commit, then move to the next.
-
-Suggested order: (1) `/theme` + fonts + navigation skeleton + placeholders,
-then (2…n) each screen as its design lands, richest flows (Trip workspace)
-first.
 
 ## 7. How to work with me
 
@@ -183,3 +200,85 @@ first.
 - **Ask before adding a dependency**, and prefer ones that work under
   react-native-web.
 - Commit after each working step.
+
+## 8. Current build status & established patterns
+
+### What's been built
+
+| Area | Status |
+|------|--------|
+| Theme + fonts + navigation skeleton | ✅ Done |
+| GroupHomeScreen (Feed tab) | ✅ Done |
+| Itinerary tab (ItineraryView) | ✅ Done |
+| Expenses tab — empty state | ✅ Done |
+| Expenses tab — submitted expense cards | ✅ Done |
+| Create Poll flow (CreatePollSheet) | ✅ Done |
+| Create Expense Request — Screen 1 (method selection) | ✅ Done |
+| Create Expense Request — Scan Receipt (expo-image-picker) | ✅ Done |
+| Create Expense Request — Screen 3 (participant selection) | ✅ Done |
+| Create Expense Request — Screen 4 (expense detail) | ✅ Done |
+| Item Breakdown Sheet (per-item participant management) | ✅ Done |
+| Toast notification (post-send feedback) | ✅ Done |
+| Home, Explore, Profile tabs | Placeholder |
+| Chat tab | Placeholder |
+
+### Mock data
+
+All data lives in `data/trips.ts` — the exported `mockTrip` object.
+- **Trip:** "Lisbon Group", 5 travellers, 6-day itinerary in June.
+- **Travellers:** Harry Menday (id `'1'`, brandOrange — **this is "You"**),
+  Lily Juggins (`'2'`, tertiaryBlue), Joe Boustead (`'3'`, tertiaryPink),
+  Aidan Stephenson (`'4'`, tertiaryPurple), Courtney Smith (`'5'`, tertiaryGreen).
+- The first traveller (id `'1'`) is always treated as the current user ("You")
+  throughout the app.
+
+### Component library (in `/components`)
+
+| Component | Description |
+|-----------|-------------|
+| `AvatarStack` | Overlapping avatar circles; accepts `showAdd` for a + button |
+| `SegmentedControl` | Feed / Itinerary / Chat / Expenses switcher |
+| `FeedItem` | Feed card — poll, expense, photo variants |
+| `QuickActionCard` | CalendarQuickAction + PollQuickAction |
+| `ParticipantSheet` | Bottom sheet — invite travellers |
+| `CreatePollSheet` | Bottom sheet — create a group poll |
+| `ItemBreakdownSheet` | Bottom sheet — manage per-item expense participants |
+| `Toast` | Slide-up notification (tertiaryBlue border, auto-dismisses 3.5s) |
+| `DateStrip` | Horizontal scrollable date strip for itinerary |
+| `ItineraryEventCard` | Single itinerary event card |
+
+### Key patterns
+
+**Full-screen flow takeover** — when a multi-step flow (like Create Expense
+Request) needs to own the full screen, use early-return routing at the top of
+`GroupHomeScreen` before the main `return`:
+```tsx
+if (expenseFlowStep === 1) return <Screen1 ... />;
+if (expenseFlowStep === 2) return <ScanReceiptScreen ... />;
+// etc.
+```
+State (`expenseFlowStep`, `scannedImageUri`, etc.) lives in `GroupHomeScreen`
+and is threaded down as props. This keeps navigation simple and avoids a
+separate navigator for flows that are internal to one tab.
+
+**Bottom sheet pattern** — all sheets use the same structure:
+- `Modal` with `transparent` + `animationType="none"`
+- `Animated.Value` for slide position + `PanResponder` for drag-to-dismiss
+- Springy open easing: `Easing.bezier(0.7, -0.4, 0.4, 1.4)` (slight overshoot)
+- `BOUNCE_BUFFER = 120` extra height below screen so the bottom never gaps
+  during overshoot
+- Backdrop `opacity` interpolated from the slide position so it tracks swipes
+- See `ParticipantSheet.tsx` as the canonical reference implementation.
+
+**Expense split calculation** — per-item participant management drives the
+Travellers Split totals. `computePersonTotals()` in Screen4 sums each person's
+item shares then scales by `MOCK_TOTAL / MOCK_SUBTOTAL` to include tax. Adding
+new items or changing the tax rate only requires updating the mock constants.
+
+**Progress bar** — multi-step flows use a thin 4px track:
+```tsx
+<View style={progressTrack}>
+  <View style={[progressFill, { width: `${(CURRENT_STEP / TOTAL_STEPS) * 100}%` }]} />
+</View>
+```
+Colour: `brandOrange`. Each screen declares its own `CURRENT_STEP` / `TOTAL_STEPS`.

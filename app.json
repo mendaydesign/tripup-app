@@ -20,6 +20,15 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "TripUp needs access to your photos to attach receipts.",
+          "cameraPermission": "TripUp needs camera access to scan receipts."
+        }
+      ]
+    ]
   }
 }

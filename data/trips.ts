@@ -10,6 +10,22 @@ export type FeedItemData =
   | { id: string; type: 'expense'; title: string; subtitle: string; timestamp: string; paidAvatars: Traveller[] }
   | { id: string; type: 'photo'; title: string; subtitle: string; timestamp: string };
 
+export type TripDate = {
+  day: string;
+  month: string;
+  notificationCount?: number;
+};
+
+export type ItineraryEvent = {
+  id: string;
+  date: string;
+  title: string;
+  subtitle: string;
+  time: string;
+  iconType: 'surf' | 'lunch' | 'beach' | 'hotel';
+  isNew?: boolean;
+};
+
 export type Trip = {
   id: string;
   name: string;
@@ -17,6 +33,8 @@ export type Trip = {
   todayActivityCount: number;
   todayDate: { day: string; month: string };
   feedItems: FeedItemData[];
+  tripDates: TripDate[];
+  itineraryEvents: ItineraryEvent[];
 };
 
 export const mockTrip: Trip = {
@@ -31,6 +49,23 @@ export const mockTrip: Trip = {
   ],
   todayActivityCount: 5,
   todayDate: { day: '09', month: 'Jun' },
+  tripDates: [
+    { day: '06', month: 'Jun' },
+    { day: '07', month: 'Jun' },
+    { day: '08', month: 'Jun' },
+    { day: '09', month: 'Jun', notificationCount: 1 },
+    { day: '10', month: 'Jun' },
+    { day: '11', month: 'Jun' },
+    { day: '12', month: 'Jun' },
+  ],
+  itineraryEvents: [
+    { id: 'e1', date: '09', title: 'Surfing Lessons', subtitle: '5 Travellers attending surfing lessons at Lisbon Bay', time: '10am', iconType: 'surf' },
+    { id: 'e2', date: '09', title: 'Lunch', subtitle: 'Booked lunch at the bay', time: '1pm', iconType: 'lunch' },
+    { id: 'e3', date: '09', title: 'Relax at beach', subtitle: 'Kick our feet up at the beach until dinner!', time: '2pm', iconType: 'beach' },
+    { id: 'e4', date: '09', title: 'Back to the hotel', subtitle: 'Time to get ready for our night out!', time: '5pm', iconType: 'hotel' },
+    { id: 'e5', date: '09', title: "Dinner at Fabio's", subtitle: 'Dinner time!', time: '8pm', iconType: 'lunch', isNew: true },
+    { id: 'e6', date: '09', title: 'Back to the hotel', subtitle: 'Time to get ready for our night out!', time: '10pm', iconType: 'hotel' },
+  ],
   feedItems: [
     {
       id: '1',
