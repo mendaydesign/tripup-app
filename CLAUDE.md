@@ -219,8 +219,8 @@ For each screen:
 | Create Expense Request — Screen 4 (expense detail) | ✅ Done |
 | Item Breakdown Sheet (per-item participant management) | ✅ Done |
 | Toast notification (post-send feedback) | ✅ Done |
+| Chat tab (ChatView) | ✅ Done |
 | Home, Explore, Profile tabs | Placeholder |
-| Chat tab | Placeholder |
 
 ### Mock data
 
@@ -231,6 +231,10 @@ All data lives in `data/trips.ts` — the exported `mockTrip` object.
   Aidan Stephenson (`'4'`, tertiaryPurple), Courtney Smith (`'5'`, tertiaryGreen).
 - The first traveller (id `'1'`) is always treated as the current user ("You")
   throughout the app.
+- **Chat messages:** `chatMessages: ChatMessage[]` on the trip — 11 mock messages
+  across all 5 travellers. `ChatMessage` has `{ id, senderId, text, timestamp }`.
+  `senderId` matches `traveller.id`. Polls in chat are not yet wired (placeholder
+  for future step).
 
 ### Component library (in `/components`)
 
@@ -247,19 +251,35 @@ All data lives in `data/trips.ts` — the exported `mockTrip` object.
 | `DateStrip` | Horizontal scrollable date strip for itinerary |
 | `ItineraryEventCard` | Single itinerary event card |
 
+**Screens (full-screen views, not bottom-sheet components)**
+
+| Screen | Description |
+|--------|-------------|
+| `ItineraryView` | Full-screen itinerary with sticky date strip + animated header |
+| `ChatView` | Full-screen chat — message list (auto-scroll to bottom) + input bar |
+
 ### Key patterns
 
-**Full-screen flow takeover** — when a multi-step flow (like Create Expense
-Request) needs to own the full screen, use early-return routing at the top of
-`GroupHomeScreen` before the main `return`:
+**Full-screen flow takeover** — when a tab or multi-step flow needs its own
+layout (e.g. fixed input bar, sticky strips), use early-return routing at the
+top of `GroupHomeScreen` before the main `return`:
 ```tsx
+if (activeTab === 'chat') return <ChatView ... />;
+if (activeTab === 'itinerary') return <ItineraryView ... />;
 if (expenseFlowStep === 1) return <Screen1 ... />;
-if (expenseFlowStep === 2) return <ScanReceiptScreen ... />;
 // etc.
 ```
-State (`expenseFlowStep`, `scannedImageUri`, etc.) lives in `GroupHomeScreen`
-and is threaded down as props. This keeps navigation simple and avoids a
-separate navigator for flows that are internal to one tab.
+State lives in `GroupHomeScreen` and is threaded down as props. This keeps
+navigation simple and avoids a separate navigator.
+
+**Chat layout** — `ChatView` uses a fixed header + trip meta + segmented
+control, with a `flex: 1` `ScrollView` for messages and a fixed input bar
+pinned to the bottom. `scrollToEnd` on `onContentSizeChange` keeps the view
+scrolled to the latest message. Bubble corner shape: `borderRadius: radius.lg`
+(20px) with a flattened inner corner (`borderBottomLeftRadius: radius.sm` for
+incoming, `borderBottomRightRadius: radius.sm` for outgoing). Polls in chat are
+not yet wired — add them by inserting a `ChatPollCard` component between
+message rows when `msg.type === 'poll'`.
 
 **Bottom sheet pattern** — all sheets use the same structure:
 - `Modal` with `transparent` + `animationType="none"`

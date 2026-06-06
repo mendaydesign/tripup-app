@@ -26,6 +26,30 @@ export type ItineraryEvent = {
   isNew?: boolean;
 };
 
+export type ChatMessage = {
+  id: string;
+  senderId: string;
+  text: string;
+  timestamp: string;
+};
+
+export type PollOption = {
+  id: string;
+  text: string;
+  votes: string[]; // traveller IDs who voted for this option
+};
+
+export type ActivePoll = {
+  id: string;
+  question: string;
+  options: PollOption[];
+  itineraryDate: string;  // e.g. "09"
+  itineraryTime: string;  // e.g. "8pm"
+  addToItinerary: boolean;
+  resolved: boolean;
+  winnerId?: string;
+};
+
 export type Trip = {
   id: string;
   name: string;
@@ -35,6 +59,7 @@ export type Trip = {
   feedItems: FeedItemData[];
   tripDates: TripDate[];
   itineraryEvents: ItineraryEvent[];
+  chatMessages: ChatMessage[];
 };
 
 export const mockTrip: Trip = {
@@ -63,8 +88,19 @@ export const mockTrip: Trip = {
     { id: 'e2', date: '09', title: 'Lunch', subtitle: 'Booked lunch at the bay', time: '1pm', iconType: 'lunch' },
     { id: 'e3', date: '09', title: 'Relax at beach', subtitle: 'Kick our feet up at the beach until dinner!', time: '2pm', iconType: 'beach' },
     { id: 'e4', date: '09', title: 'Back to the hotel', subtitle: 'Time to get ready for our night out!', time: '5pm', iconType: 'hotel' },
-    { id: 'e5', date: '09', title: "Dinner at Fabio's", subtitle: 'Dinner time!', time: '8pm', iconType: 'lunch', isNew: true },
     { id: 'e6', date: '09', title: 'Back to the hotel', subtitle: 'Time to get ready for our night out!', time: '10pm', iconType: 'hotel' },
+  ],
+  chatMessages: [
+    { id: 'c1', senderId: '2', text: "Can't believe we're actually going to Lisbon next week! 🎉", timestamp: '09:12' },
+    { id: 'c2', senderId: '3', text: "Same! I've been counting down. What's the plan for day one?", timestamp: '09:13' },
+    { id: 'c3', senderId: '4', text: "I vote we head straight to the beach 🏖️", timestamp: '09:13' },
+    { id: 'c4', senderId: '5', text: "Seconded — drop bags, go straight to Cascais ☀️", timestamp: '09:14' },
+    { id: 'c5', senderId: '1', text: "I'm in. Also has everyone sorted their flights?", timestamp: '09:15' },
+    { id: 'c6', senderId: '2', text: "We're all on the same one right? Heathrow at 7am", timestamp: '09:16' },
+    { id: 'c7', senderId: '4', text: "🫡 Confirmed!", timestamp: '09:16' },
+    { id: 'c8', senderId: '3', text: "Me too — see you all in the departures queue 😂", timestamp: '09:17' },
+    { id: 'c9', senderId: '5', text: "Can't wait! What are we thinking for dinner that first night?", timestamp: '09:18' },
+    { id: 'c10', senderId: '1', text: "Good shout — I'll set up a poll so we can all vote on where to go 🗳️", timestamp: '09:20' },
   ],
   feedItems: [
     {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -18,12 +18,13 @@ import FeedItem from '../components/FeedItem';
 import ParticipantSheet from '../components/ParticipantSheet';
 import CreatePollSheet from '../components/CreatePollSheet';
 import ItineraryView from './ItineraryView';
+import ChatView from './ChatView';
 import ExpenseRequestScreen1, { InputMethod } from './CreateExpenseRequest/Screen1';
 import ScanReceiptScreen from './CreateExpenseRequest/ScanReceiptScreen';
 import ParticipantSelectionScreen from './CreateExpenseRequest/Screen3';
 import ExpenseDetailScreen from './CreateExpenseRequest/Screen4';
 import Toast from '../components/Toast';
-import { mockTrip, Traveller } from '../data/trips';
+import { mockTrip, Traveller, ActivePoll, ItineraryEvent } from '../data/trips';
 
 type SubmittedExpense = {
   id: string;
@@ -31,6 +32,35 @@ type SubmittedExpense = {
   total: number;
   travellers: Traveller[];
 };
+
+// Make the user's chosen option win — they get 3 votes (user + 2 others),
+// remaining others spread across the other options 1 each.
+function simulateAllVotes(
+  options: ActivePoll['options'],
+  userOptionId: string,
+  travellers: Traveller[],
+  youId: string
+): ActivePoll['options'] {
+  const others = travellers.filter((t) => t.id !== youId);
+  const userIdx = options.findIndex((o) => o.id === userOptionId);
+
+  const updated = options.map((o) => ({
+    ...o,
+    votes: o.id === userOptionId ? [youId] : ([] as string[]),
+  }));
+
+  // First 2 others vote alongside the user
+  updated[userIdx].votes.push(others[0].id, others[1].id);
+
+  // Remaining others spread to non-winning options (1 each)
+  const loserIdxs = options.map((_, i) => i).filter((i) => i !== userIdx);
+  others.slice(2).forEach((t, i) => {
+    const targetIdx = loserIdxs[i % loserIdxs.length];
+    if (targetIdx !== undefined) updated[targetIdx].votes.push(t.id);
+  });
+
+  return updated;
+}
 
 export default function GroupHomeScreen() {
   const [activeTab, setActiveTab] = useState('feed');
@@ -43,11 +73,59 @@ export default function GroupHomeScreen() {
   const [submittedExpenses, setSubmittedExpenses] = useState<SubmittedExpense[]>([]);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastExpenseName, setToastExpenseName] = useState('');
+
+  // Poll + dynamic itinerary state
+  const [activePolls, setActivePolls] = useState<ActivePoll[]>([]);
+  const [dynamicEvents, setDynamicEvents] = useState<ItineraryEvent[]>(mockTrip.itineraryEvents);
+  const [pollWinnerToastVisible, setPollWinnerToastVisible] = useState(false);
+  const [pollWinnerText, setPollWinnerText] = useState('');
+  // Flag so onClose knows whether the sheet closed via a submission
+  const pollSubmittedRef = useRef(false);
+
   const insets = useSafeAreaInsets();
   const trip = mockTrip;
+  const tripWithDynamic = { ...trip, itineraryEvents: dynamicEvents };
   const youId = trip.travellers[0]?.id;
 
-  // Expense request flow — full-screen takeover
+  function handleVote(pollId: string, optionId: string) {
+    setActivePolls((prev) =>
+      prev.map((poll) => {
+        if (poll.id !== pollId || poll.resolved) return poll;
+
+        const withVotes = simulateAllVotes(poll.options, optionId, trip.travellers, youId);
+        const totalVotes = withVotes.reduce((sum, o) => sum + o.votes.length, 0);
+        const allVoted = totalVotes >= trip.travellers.length;
+
+        if (allVoted) {
+          const winner = withVotes.reduce((a, b) =>
+            a.votes.length >= b.votes.length ? a : b
+          );
+
+          if (poll.addToItinerary && poll.itineraryTime) {
+            const newEvent: ItineraryEvent = {
+              id: `poll-${pollId}`,
+              date: poll.itineraryDate || trip.todayDate.day,
+              title: winner.text,
+              subtitle: `Added by group vote · ${winner.votes.length} votes`,
+              time: poll.itineraryTime,
+              iconType: 'lunch',
+              isNew: true,
+            };
+            setDynamicEvents((prev) => [...prev, newEvent]);
+          }
+
+          setPollWinnerText(winner.text);
+          setPollWinnerToastVisible(true);
+
+          return { ...poll, options: withVotes, resolved: true, winnerId: winner.id };
+        }
+
+        return { ...poll, options: withVotes };
+      })
+    );
+  }
+
+  // ── Expense request flow — full-screen takeover ──────────────────────────
   if (expenseFlowStep === 1) {
     return (
       <ExpenseRequestScreen1
@@ -55,7 +133,6 @@ export default function GroupHomeScreen() {
         onBack={() => setExpenseFlowStep(0)}
         onContinue={(method) => {
           setExpenseInputMethod(method);
-          // Manual skips camera, goes straight to participant selection
           setExpenseFlowStep(method === 'manual' ? 3 : 2);
         }}
       />
@@ -102,17 +179,12 @@ export default function GroupHomeScreen() {
         scannedImageUri={scannedImageUri}
         onBack={() => setExpenseFlowStep(3)}
         onSend={(name) => {
-          const selectedTravellers = trip.travellers.filter((t) =>
+          const sel = trip.travellers.filter((t) =>
             selectedParticipantIds.includes(t.id)
           );
           setSubmittedExpenses((prev) => [
             ...prev,
-            {
-              id: String(Date.now()),
-              name: name || 'Expense',
-              total: 100,
-              travellers: selectedTravellers,
-            },
+            { id: String(Date.now()), name: name || 'Expense', total: 100, travellers: sel },
           ]);
           setToastExpenseName(name || 'Expense');
           setToastVisible(true);
@@ -123,12 +195,44 @@ export default function GroupHomeScreen() {
     );
   }
 
-  // Itinerary takes over the full screen (header + sticky date strip + scroll)
+  // ── Chat takes over (fixed header + scrollable messages + input bar) ──────
+  if (activeTab === 'chat') {
+    return (
+      <>
+        <ChatView
+          trip={trip}
+          youId={youId}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          onAddParticipant={() => setSheetVisible(true)}
+          activePolls={activePolls}
+          onVote={handleVote}
+        />
+        <ParticipantSheet
+          visible={sheetVisible}
+          onClose={() => setSheetVisible(false)}
+          travellers={trip.travellers}
+        />
+        <Toast
+          visible={pollWinnerToastVisible}
+          onClose={() => setPollWinnerToastVisible(false)}
+          title="Winner!"
+          subtitle={`${pollWinnerText} added to the itinerary 🎉`}
+          iconName="trophy-outline"
+          iconColor={colors.tertiaryPurple}
+          iconBgColor={`${colors.tertiaryPurple}20`}
+          borderColor={colors.tertiaryPurple}
+        />
+      </>
+    );
+  }
+
+  // ── Itinerary takes over (header crossfade + sticky date strip + scroll) ──
   if (activeTab === 'itinerary') {
     return (
       <>
         <ItineraryView
-          trip={trip}
+          trip={tripWithDynamic}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           onAddParticipant={() => setSheetVisible(true)}
@@ -142,6 +246,7 @@ export default function GroupHomeScreen() {
     );
   }
 
+  // ── Main shell (Feed + Expenses) ─────────────────────────────────────────
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
 
@@ -150,9 +255,7 @@ export default function GroupHomeScreen() {
         <TouchableOpacity style={styles.headerBtn}>
           <Ionicons name="chevron-back" size={24} color={colors.dark} />
         </TouchableOpacity>
-
         <BrandingLogo width={80} height={28} />
-
         <TouchableOpacity style={styles.headerBtn}>
           <View>
             <Ionicons name="notifications-outline" size={24} color={colors.dark} />
@@ -178,7 +281,6 @@ export default function GroupHomeScreen() {
         </View>
       </View>
 
-      {/* Segmented control — stays fixed while content scrolls */}
       <SegmentedControl activeKey={activeTab} onChange={setActiveTab} />
 
       <ParticipantSheet
@@ -189,12 +291,30 @@ export default function GroupHomeScreen() {
 
       <CreatePollSheet
         visible={pollSheetVisible}
-        onClose={() => setPollSheetVisible(false)}
         tripDates={trip.tripDates}
         todayDay={trip.todayDate.day}
+        onSubmit={(data) => {
+          const newPoll: ActivePoll = {
+            id: String(Date.now()),
+            question: data.question,
+            options: data.options.map((text, i) => ({ id: String(i), text, votes: [] })),
+            itineraryDate: data.date,
+            itineraryTime: data.time,
+            addToItinerary: data.addToItinerary,
+            resolved: false,
+          };
+          setActivePolls((prev) => [...prev, newPoll]);
+          pollSubmittedRef.current = true;
+        }}
+        onClose={() => {
+          setPollSheetVisible(false);
+          if (pollSubmittedRef.current) {
+            pollSubmittedRef.current = false;
+            setActiveTab('chat');
+          }
+        }}
       />
 
-      {/* Scrollable content */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -202,7 +322,6 @@ export default function GroupHomeScreen() {
       >
         {activeTab === 'feed' && (
           <>
-            {/* Quick Actions */}
             <Text style={styles.sectionHeader}>Quick Actions</Text>
             <View style={styles.quickActions}>
               <CalendarQuickAction
@@ -212,8 +331,6 @@ export default function GroupHomeScreen() {
               />
               <PollQuickAction onPress={() => setPollSheetVisible(true)} />
             </View>
-
-            {/* Trip Feed */}
             <Text style={styles.sectionHeader}>Trip Feed</Text>
             <View style={styles.feedList}>
               {trip.feedItems.map((item, i) => (
@@ -229,7 +346,6 @@ export default function GroupHomeScreen() {
 
         {activeTab === 'expenses' && (
           <>
-            {/* Overview */}
             <Text style={styles.sectionHeader}>Overview</Text>
             <View style={styles.expenseOverview}>
               <View style={styles.summaryCard}>
@@ -242,7 +358,6 @@ export default function GroupHomeScreen() {
               </View>
             </View>
 
-            {/* Expense Requests */}
             <Text style={styles.sectionHeader}>Expense Requests</Text>
 
             {submittedExpenses.length === 0 ? (
@@ -264,11 +379,7 @@ export default function GroupHomeScreen() {
                         <Text style={styles.expenseCardPaid}>
                           Paid 0/{expense.travellers.length}
                         </Text>
-                        <AvatarStack
-                          avatars={expense.travellers}
-                          size={22}
-                          overlap={7}
-                        />
+                        <AvatarStack avatars={expense.travellers} size={22} overlap={7} />
                       </View>
                     </View>
                     <Text style={styles.expenseCardAmount}>
@@ -279,7 +390,6 @@ export default function GroupHomeScreen() {
               </View>
             )}
 
-            {/* CTA always visible */}
             <View style={styles.expenseCTAWrap}>
               <TouchableOpacity
                 style={styles.expenseEmptyCTA}
@@ -292,7 +402,7 @@ export default function GroupHomeScreen() {
           </>
         )}
 
-        {activeTab !== 'feed' && activeTab !== 'itinerary' && activeTab !== 'expenses' && (
+        {activeTab !== 'feed' && activeTab !== 'itinerary' && activeTab !== 'chat' && activeTab !== 'expenses' && (
           <View style={styles.placeholder}>
             <Text style={styles.placeholderText}>
               {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} coming soon
@@ -306,6 +416,17 @@ export default function GroupHomeScreen() {
         expenseName={toastExpenseName}
         onClose={() => setToastVisible(false)}
       />
+
+      <Toast
+        visible={pollWinnerToastVisible}
+        onClose={() => setPollWinnerToastVisible(false)}
+        title="Winner!"
+        subtitle={`${pollWinnerText} added to the itinerary 🎉`}
+        iconName="trophy-outline"
+        iconColor={colors.tertiaryPurple}
+        iconBgColor={`${colors.tertiaryPurple}20`}
+        borderColor={colors.tertiaryPurple}
+      />
     </View>
   );
 }
@@ -315,8 +436,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white,
   },
-
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -346,8 +465,6 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontFamily: 'OpenSauceOne-Bold',
   },
-
-  // Trip meta
   tripMeta: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
@@ -368,16 +485,12 @@ const styles = StyleSheet.create({
     color: colors.dark,
     opacity: 0.5,
   },
-
-  // Scroll
   scroll: {
     flex: 1,
   },
   scrollContent: {
     paddingBottom: 32,
   },
-
-  // Sections
   sectionHeader: {
     ...typography.h2,
     color: colors.dark,
@@ -390,11 +503,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
   },
-  feedList: {
-    // Items handle their own padding
-  },
-
-  // Expenses tab
+  feedList: {},
   expenseOverview: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
@@ -403,9 +512,9 @@ const styles = StyleSheet.create({
   summaryCard: {
     flex: 1,
     backgroundColor: '#F7F7F7',
-    borderRadius: radius.sm,       // 10px per tweak 4
-    padding: spacing.sm,           // matches QuickActionCard
-    minHeight: 170,                // matches QuickActionCard
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    minHeight: 170,
     justifyContent: 'space-between',
     alignItems: 'stretch',
   },
@@ -487,8 +596,6 @@ const styles = StyleSheet.create({
     fontFamily: 'OpenSauceOne-SemiBold',
     color: colors.white,
   },
-
-  // Placeholder for non-feed tabs
   placeholder: {
     flex: 1,
     alignItems: 'center',

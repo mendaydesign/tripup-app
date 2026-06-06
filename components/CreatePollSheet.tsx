@@ -19,11 +19,20 @@ import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing, radius } from '../theme';
 import { TripDate } from '../data/trips';
 
+export type PollSubmitData = {
+  question: string;
+  options: string[];      // non-empty strings only
+  date: string;           // trip day e.g. "09"
+  time: string;           // formatted e.g. "8pm" or "8:30pm"
+  addToItinerary: boolean;
+};
+
 type Props = {
   visible: boolean;
   onClose: () => void;
   tripDates: TripDate[];
   todayDay: string;
+  onSubmit: (data: PollSubmitData) => void;
 };
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -83,7 +92,7 @@ function WheelSlot({
   );
 }
 
-export default function CreatePollSheet({ visible, onClose, tripDates, todayDay }: Props) {
+export default function CreatePollSheet({ visible, onClose, tripDates, todayDay, onSubmit }: Props) {
   const insets = useSafeAreaInsets();
   const sheetHeight = SCREEN_HEIGHT - insets.top - HEADER_OFFSET;
 
@@ -378,7 +387,26 @@ export default function CreatePollSheet({ visible, onClose, tripDates, todayDay 
 
           {/* Sticky submit CTA */}
           <View style={styles.stickyFooter}>
-            <TouchableOpacity style={styles.submitBtn} onPress={dismiss} activeOpacity={0.85}>
+            <TouchableOpacity
+              style={styles.submitBtn}
+              activeOpacity={0.85}
+              onPress={() => {
+                const validOptions = options.filter((o) => o.trim().length > 0);
+                if (!question.trim() || validOptions.length < 2) {
+                  dismiss();
+                  return;
+                }
+                const timeLabel = `${hour}${minuteIdx > 0 ? ':' + String(minuteIdx).padStart(2, '0') : ''}${isPM ? 'pm' : 'am'}`;
+                onSubmit({
+                  question: question.trim(),
+                  options: validOptions,
+                  date: selectedDay,
+                  time: addToItinerary ? timeLabel : '',
+                  addToItinerary,
+                });
+                dismiss();
+              }}
+            >
               <Text style={styles.submitText}>Submit Poll</Text>
             </TouchableOpacity>
           </View>

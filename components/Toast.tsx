@@ -11,24 +11,48 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, radius } from '../theme';
 
-// Approximate tab bar height — covers most iOS/Android devices
 const TAB_BAR_HEIGHT = 49;
 
 type Props = {
   visible: boolean;
-  expenseName: string;
   onClose: () => void;
+  // Content — provide either the generic props OR the legacy expenseName shorthand
+  title?: string;
+  subtitle?: string;
+  iconName?: keyof typeof Ionicons.glyphMap;
+  iconColor?: string;
+  iconBgColor?: string;
+  borderColor?: string;
+  // Legacy shorthand (expense toast)
+  expenseName?: string;
 };
 
-export default function Toast({ visible, expenseName, onClose }: Props) {
+export default function Toast({
+  visible,
+  onClose,
+  title,
+  subtitle,
+  iconName,
+  iconColor,
+  iconBgColor,
+  borderColor,
+  expenseName,
+}: Props) {
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(140)).current;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Resolve content — generic props take priority; fall back to expense defaults
+  const resolvedTitle = title ?? 'Sent!';
+  const resolvedSubtitle = subtitle ?? (expenseName ? `${expenseName} request sent` : 'Expense request sent');
+  const resolvedIcon: keyof typeof Ionicons.glyphMap = iconName ?? 'cash-outline';
+  const resolvedIconColor = iconColor ?? colors.tertiaryGreen;
+  const resolvedIconBg = iconBgColor ?? `${colors.tertiaryGreen}20`;
+  const resolvedBorder = borderColor ?? colors.tertiaryBlue;
+
   useEffect(() => {
     if (visible) {
       if (timerRef.current) clearTimeout(timerRef.current);
-
       slideAnim.setValue(140);
       Animated.spring(slideAnim, {
         toValue: 0,
@@ -36,10 +60,8 @@ export default function Toast({ visible, expenseName, onClose }: Props) {
         tension: 70,
         friction: 11,
       }).start();
-
       timerRef.current = setTimeout(dismiss, 3500);
     }
-
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
@@ -64,24 +86,18 @@ export default function Toast({ visible, expenseName, onClose }: Props) {
             styles.toast,
             {
               bottom: insets.bottom + TAB_BAR_HEIGHT + spacing.lg,
+              borderColor: resolvedBorder,
               transform: [{ translateY: slideAnim }],
             },
           ]}
         >
-          {/* Icon */}
-          <View style={styles.iconWrap}>
-            <Ionicons name="cash-outline" size={20} color={colors.tertiaryGreen} />
+          <View style={[styles.iconWrap, { backgroundColor: resolvedIconBg }]}>
+            <Ionicons name={resolvedIcon} size={20} color={resolvedIconColor} />
           </View>
-
-          {/* Text */}
           <View style={styles.textWrap}>
-            <Text style={styles.title}>Sent!</Text>
-            <Text style={styles.subtitle} numberOfLines={1}>
-              {expenseName ? `${expenseName} request sent` : 'Expense request sent'}
-            </Text>
+            <Text style={styles.title}>{resolvedTitle}</Text>
+            <Text style={styles.subtitle} numberOfLines={1}>{resolvedSubtitle}</Text>
           </View>
-
-          {/* Close */}
           <TouchableOpacity style={styles.closeBtn} onPress={dismiss} activeOpacity={0.7}>
             <Ionicons name="close" size={14} color={colors.dark} />
           </TouchableOpacity>
@@ -102,7 +118,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderRadius: radius.sm,
     borderWidth: 1.5,
-    borderColor: colors.tertiaryBlue,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
@@ -118,7 +133,6 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: `${colors.tertiaryGreen}20`,
     alignItems: 'center',
     justifyContent: 'center',
   },
