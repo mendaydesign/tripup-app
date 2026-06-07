@@ -16,8 +16,8 @@ const systemFont = Platform.select({
 
 export const typography = {
   h1: { fontSize: 24, fontFamily: fontFamily.bold },
-  h2: { fontSize: 20, fontFamily: fontFamily.semiBold },
-  h3: { fontSize: 18, fontFamily: fontFamily.semiBold },
+  h2: { fontSize: 15, fontFamily: fontFamily.semiBold },
+  h3: { fontSize: 15, fontFamily: fontFamily.semiBold },
   bodyLarge: { fontSize: 16, fontFamily: fontFamily.regular },
   bodySmall: { fontSize: 14, fontFamily: fontFamily.regular },
   label: { fontSize: 12, fontFamily: fontFamily.medium },

@@ -1,8 +1,13 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import { colors, typography, spacing } from '../theme';
 import { TripDate } from '../data/trips';
 import DateNotifBadge from '../assets/Icons/Date-Notification-New-Event.svg';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const ITEM_WIDTH = 52;
+const ITEM_GAP = 8;
+const STRIP_PADDING = spacing.lg; // 20
 
 type Props = {
   dates: TripDate[];
@@ -11,8 +16,21 @@ type Props = {
 };
 
 export default function DateStrip({ dates, selectedDay, onSelect }: Props) {
+  const scrollRef = useRef<ScrollView>(null);
+  const hasInitialized = useRef(false);
+
+  useEffect(() => {
+    const index = dates.findIndex((d) => d.day === selectedDay);
+    if (index === -1) return;
+    const itemCentre = STRIP_PADDING + index * (ITEM_WIDTH + ITEM_GAP) + ITEM_WIDTH / 2;
+    const scrollX = Math.max(0, itemCentre - SCREEN_WIDTH / 2);
+    scrollRef.current?.scrollTo({ x: scrollX, animated: hasInitialized.current });
+    hasInitialized.current = true;
+  }, [selectedDay, dates]);
+
   return (
     <ScrollView
+      ref={scrollRef}
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.strip}

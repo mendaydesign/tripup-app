@@ -17,12 +17,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing } from '../theme';
 import { Traveller } from '../data/trips';
 
-type InviteEntry = { id: string; name: string; initials: string; color: string };
+export type InviteEntry = { id: string; name: string; initials: string; color: string };
 
 type Props = {
   visible: boolean;
   onClose: () => void;
   travellers: Traveller[];
+  onInviteSent?: (name: string) => void;
+  onInvitesConfirmed?: (invites: InviteEntry[]) => void;
 };
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -44,7 +46,7 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export default function ParticipantSheet({ visible, onClose, travellers }: Props) {
+export default function ParticipantSheet({ visible, onClose, travellers, onInviteSent, onInvitesConfirmed }: Props) {
   const insets = useSafeAreaInsets();
   const sheetHeight = SCREEN_HEIGHT - insets.top - HEADER_OFFSET;
 
@@ -56,6 +58,9 @@ export default function ParticipantSheet({ visible, onClose, travellers }: Props
   const [inputValue, setInputValue] = useState('');
   const [invites, setInvites] = useState<InviteEntry[]>([]);
   const colorIndex = useRef(0);
+
+  // dismissRef ensures PanResponder always calls the latest dismiss (avoids stale closure).
+  const dismissRef = useRef<() => void>(() => {});
 
   // Backdrop opacity is derived from slide position so it tracks swipe gestures too
   const backdropOpacity = slideAnim.interpolate({
@@ -84,6 +89,7 @@ export default function ParticipantSheet({ visible, onClose, travellers }: Props
   }, [visible]);
 
   function dismiss() {
+    const toConfirm = [...invites];
     Animated.timing(slideAnim, {
       toValue: sheetHeight,
       duration: 280,
@@ -91,9 +97,16 @@ export default function ParticipantSheet({ visible, onClose, travellers }: Props
       useNativeDriver: true,
     }).start(() => {
       dragOffset.setValue(0);
+      if (toConfirm.length > 0) {
+        onInvitesConfirmed?.(toConfirm);
+      }
+      setInvites([]);
       onClose();
     });
   }
+
+  // Keep the ref current on every render so panResponder always calls the latest dismiss.
+  dismissRef.current = dismiss;
 
   const panResponder = useRef(
     PanResponder.create({
@@ -104,7 +117,7 @@ export default function ParticipantSheet({ visible, onClose, travellers }: Props
       },
       onPanResponderRelease: (_, { dy, vy }) => {
         if (dy > 100 || vy > 0.5) {
-          dismiss();
+          dismissRef.current();
         } else {
           Animated.spring(dragOffset, {
             toValue: 0,
@@ -122,11 +135,10 @@ export default function ParticipantSheet({ visible, onClose, travellers }: Props
     if (!name) return;
     const color = INVITE_COLORS[colorIndex.current % INVITE_COLORS.length];
     colorIndex.current += 1;
-    setInvites((prev) => [
-      ...prev,
-      { id: String(Date.now()), name, initials: getInitials(name), color },
-    ]);
+    const entry: InviteEntry = { id: String(Date.now()), name, initials: getInitials(name), color };
+    setInvites((prev) => [...prev, entry]);
     setInputValue('');
+    onInviteSent?.(name);
   }
 
   const combinedTranslate = Animated.add(slideAnim, dragOffset);

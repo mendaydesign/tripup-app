@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
+  Animated,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,6 +24,10 @@ type Props = {
   onAddParticipant: () => void;
   activePolls: ActivePoll[];
   onVote: (pollId: string, optionId: string) => void;
+  unreadCount?: number;
+  onBellPress?: () => void;
+  noHeader?: boolean;
+  onScrollEvent?: (event: any) => void;
 };
 
 export default function ChatView({
@@ -33,6 +38,10 @@ export default function ChatView({
   onAddParticipant,
   activePolls,
   onVote,
+  unreadCount = 0,
+  onBellPress,
+  noHeader = false,
+  onScrollEvent,
 }: Props) {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
@@ -49,51 +58,52 @@ export default function ChatView({
   }
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    <View style={[styles.screen, !noHeader && { paddingTop: insets.top }]}>
 
-      {/* Fixed header — stays visible while content scrolls */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.headerBtn}>
-          <Ionicons name="chevron-back" size={24} color={colors.dark} />
-        </TouchableOpacity>
-        <BrandingLogo width={80} height={28} />
-        <TouchableOpacity style={styles.headerBtn}>
-          <View>
-            <Ionicons name="notifications-outline" size={24} color={colors.dark} />
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>1</Text>
+      {!noHeader && (
+        <>
+          {/* Fixed header */}
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.headerBtn}>
+              <Ionicons name="chevron-back" size={24} color={colors.dark} />
+            </TouchableOpacity>
+            <BrandingLogo width={80} height={28} />
+            <TouchableOpacity style={styles.headerBtn} onPress={onBellPress}>
+              <View>
+                <Ionicons name="notifications-outline" size={24} color={colors.dark} />
+                {unreadCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{unreadCount}</Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Fixed trip meta */}
+          <View style={styles.tripMeta}>
+            <Text style={styles.tripName}>{trip.name}</Text>
+            <View style={styles.travellersRow}>
+              <Text style={styles.travellersLabel}>Travellers</Text>
+              <AvatarStack avatars={trip.travellers} size={30} overlap={10} showAdd onAdd={onAddParticipant} />
             </View>
           </View>
-        </TouchableOpacity>
-      </View>
 
-      {/* Scrollable body — trip meta + segmented control scroll away (same as Itinerary) */}
-      <ScrollView
-        ref={scrollRef}
+          {/* Fixed segmented control */}
+          <SegmentedControl activeKey={activeTab} onChange={onTabChange} />
+        </>
+      )}
+
+      {/* Scrollable messages only */}
+      <Animated.ScrollView
+        ref={scrollRef as any}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+        onScroll={onScrollEvent}
+        scrollEventThrottle={16}
       >
-        {/* Trip meta — scrolls away */}
-        <View style={styles.tripMeta}>
-          <Text style={styles.tripName}>{trip.name}</Text>
-          <View style={styles.travellersRow}>
-            <Text style={styles.travellersLabel}>Travellers</Text>
-            <AvatarStack
-              avatars={trip.travellers}
-              size={30}
-              overlap={10}
-              showAdd
-              onAdd={onAddParticipant}
-            />
-          </View>
-        </View>
-
-        {/* Segmented control — scrolls away */}
-        <SegmentedControl activeKey={activeTab} onChange={onTabChange} />
-
         {/* Date separator */}
         <Text style={styles.dateSeparator}>Today</Text>
 
@@ -143,6 +153,14 @@ export default function ChatView({
             <View key={poll.id} style={styles.pollContainer}>
               <View style={styles.pollCard}>
                 <Text style={styles.pollQuestion}>{poll.question}</Text>
+                {poll.addToItinerary && poll.itineraryTime ? (
+                  <View style={styles.pollTimeSuggestion}>
+                    <Ionicons name="calendar-outline" size={12} color={`${colors.dark}45`} />
+                    <Text style={styles.pollTimeText}>
+                      Jun {poll.itineraryDate} · {poll.itineraryTime}
+                    </Text>
+                  </View>
+                ) : null}
 
                 {poll.options.map((option) => {
                   const isSelected = myVotes[poll.id] === option.id;
@@ -206,7 +224,7 @@ export default function ChatView({
             </View>
           );
         })}
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Fixed input bar */}
       <View style={[styles.inputBar, { paddingBottom: insets.bottom > 0 ? insets.bottom : 10 }]}>
@@ -281,11 +299,13 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing.lg,
     gap: 10,
+    paddingTop: spacing.sm,
   },
 
   // Trip meta — scrolls away (same as Itinerary)
   tripMeta: {
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
     gap: 6,
   },
@@ -384,7 +404,17 @@ const styles = StyleSheet.create({
     ...typography.h3,
     fontFamily: 'OpenSauceOne-SemiBold',
     color: colors.dark,
+    marginBottom: 6,
+  },
+  pollTimeSuggestion: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     marginBottom: spacing.sm,
+  },
+  pollTimeText: {
+    ...typography.bodySmall,
+    color: `${colors.dark}45`,
   },
   pollOption: {
     flexDirection: 'row',

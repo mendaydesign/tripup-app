@@ -25,6 +25,8 @@ type Props = {
   borderColor?: string;
   // Legacy shorthand (expense toast)
   expenseName?: string;
+  // Optional tap handler — makes the body pressable and shows a chevron
+  onPress?: () => void;
 };
 
 export default function Toast({
@@ -37,6 +39,7 @@ export default function Toast({
   iconBgColor,
   borderColor,
   expenseName,
+  onPress,
 }: Props) {
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(140)).current;
@@ -91,13 +94,23 @@ export default function Toast({
             },
           ]}
         >
-          <View style={[styles.iconWrap, { backgroundColor: resolvedIconBg }]}>
-            <Ionicons name={resolvedIcon} size={20} color={resolvedIconColor} />
-          </View>
-          <View style={styles.textWrap}>
-            <Text style={styles.title}>{resolvedTitle}</Text>
-            <Text style={styles.subtitle} numberOfLines={1}>{resolvedSubtitle}</Text>
-          </View>
+          <TouchableOpacity
+            style={styles.pressable}
+            onPress={onPress ? () => { dismiss(); onPress(); } : undefined}
+            activeOpacity={onPress ? 0.7 : 1}
+            disabled={!onPress}
+          >
+            <View style={[styles.iconWrap, { backgroundColor: resolvedIconBg }]}>
+              <Ionicons name={resolvedIcon} size={20} color={resolvedIconColor} />
+            </View>
+            <View style={styles.textWrap}>
+              <Text style={styles.title}>{resolvedTitle}</Text>
+              <Text style={styles.subtitle} numberOfLines={1}>{resolvedSubtitle}</Text>
+            </View>
+            {onPress && (
+              <Ionicons name="chevron-forward" size={16} color={`${colors.dark}35`} />
+            )}
+          </TouchableOpacity>
           <TouchableOpacity style={styles.closeBtn} onPress={dismiss} activeOpacity={0.7}>
             <Ionicons name="close" size={14} color={colors.dark} />
           </TouchableOpacity>
@@ -128,6 +141,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 14,
     elevation: 6,
+  },
+  pressable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   iconWrap: {
     width: 38,

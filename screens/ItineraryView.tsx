@@ -1,11 +1,14 @@
 import React, { useRef, useState } from 'react';
 import {
   Animated,
+  Dimensions,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, radius } from '../theme';
@@ -37,12 +40,17 @@ type Props = {
   activeTab: string;
   onTabChange: (tab: string) => void;
   onAddParticipant: () => void;
+  unreadCount?: number;
+  onBellPress?: () => void;
+  noHeader?: boolean;
+  initialDay?: string;
+  onScrollEvent?: (event: any) => void;
 };
 
-export default function ItineraryView({ trip, activeTab, onTabChange, onAddParticipant }: Props) {
+export default function ItineraryView({ trip, activeTab, onTabChange, onAddParticipant, unreadCount = 0, onBellPress, noHeader = false, initialDay, onScrollEvent }: Props) {
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
-  const [selectedDay, setSelectedDay] = useState(trip.todayDate.day);
+  const [selectedDay, setSelectedDay] = useState(initialDay ?? trip.todayDate.day);
 
   const logoOpacity = scrollY.interpolate({
     inputRange: [FADE_START, FADE_END],
@@ -58,75 +66,68 @@ export default function ItineraryView({ trip, activeTab, onTabChange, onAddParti
   const events = trip.itineraryEvents.filter((e) => e.date === selectedDay);
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    <View style={[styles.screen, !noHeader && { paddingTop: insets.top }]}>
 
-      {/* ── Fixed header ── */}
-      <View style={styles.header}>
-
-        {/* Back arrow: dark fades out, orange fades in */}
-        <TouchableOpacity style={styles.headerBtn}>
-          <Animated.View style={{ opacity: logoOpacity }}>
-            <Ionicons name="chevron-back" size={24} color={colors.dark} />
-          </Animated.View>
-          <Animated.View style={[StyleSheet.absoluteFill, styles.headerBtnInner, { opacity: titleOpacity }]}>
-            <Ionicons name="chevron-back" size={24} color={colors.brandOrange} />
-          </Animated.View>
-        </TouchableOpacity>
-
-        {/* Centre: logo ↔ title crossfade */}
-        <View style={styles.headerCenter}>
-          <Animated.View style={[styles.headerCenterItem, { opacity: logoOpacity }]}>
-            <BrandingLogo width={80} height={28} />
-          </Animated.View>
-          <Animated.Text style={[styles.headerTitle, { opacity: titleOpacity }]}>
-            {trip.name}: Itinerary
-          </Animated.Text>
-        </View>
-
-        {/* Notification bell */}
-        <TouchableOpacity style={styles.headerBtn}>
-          <View>
-            <Ionicons name="notifications-outline" size={24} color={colors.dark} />
-            <View style={styles.notifBadge}>
-              <Text style={styles.notifBadgeText}>1</Text>
-            </View>
+      {/* ── Fixed header (hidden when embedded in GroupHomeScreen shell) ── */}
+      {!noHeader && (
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.headerBtn}>
+            <Animated.View style={{ opacity: logoOpacity }}>
+              <Ionicons name="chevron-back" size={24} color={colors.dark} />
+            </Animated.View>
+            <Animated.View style={[StyleSheet.absoluteFill, styles.headerBtnInner, { opacity: titleOpacity }]}>
+              <Ionicons name="chevron-back" size={24} color={colors.brandOrange} />
+            </Animated.View>
+          </TouchableOpacity>
+          <View style={styles.headerCenter}>
+            <Animated.View style={[styles.headerCenterItem, { opacity: logoOpacity }]}>
+              <BrandingLogo width={80} height={28} />
+            </Animated.View>
+            <Animated.Text style={[styles.headerTitle, { opacity: titleOpacity }]}>
+              {trip.name}: Itinerary
+            </Animated.Text>
           </View>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity style={styles.headerBtn} onPress={onBellPress}>
+            <View>
+              <Ionicons name="notifications-outline" size={24} color={colors.dark} />
+              {unreadCount > 0 && (
+                <View style={styles.notifBadge}>
+                  <Text style={styles.notifBadgeText}>{unreadCount}</Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* ── Scrollable body ── */}
       <Animated.ScrollView
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
-        // index 2 = DateStrip wrapper → sticky
-        stickyHeaderIndices={[2]}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true }
-        )}
+        // noHeader: DateStrip is index 0; standalone: DateStrip is index 2 (after tripMeta + segmented)
+        stickyHeaderIndices={noHeader ? [0] : [2]}
+        onScroll={noHeader && onScrollEvent
+          ? onScrollEvent
+          : Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
         scrollEventThrottle={16}
         contentContainerStyle={styles.scrollContent}
       >
 
-        {/* 0 — Trip meta (scrolls away) */}
-        <View style={styles.tripMeta}>
-          <Text style={styles.tripName}>{trip.name}</Text>
-          <View style={styles.travellersRow}>
-            <Text style={styles.travellersLabel}>Travellers</Text>
-            <AvatarStack
-              avatars={trip.travellers}
-              size={30}
-              overlap={10}
-              showAdd
-              onAdd={onAddParticipant}
-            />
-          </View>
-        </View>
+        {/* Trip meta + segmented control — only in standalone mode */}
+        {!noHeader && (
+          <>
+            <View style={styles.tripMeta}>
+              <Text style={styles.tripName}>{trip.name}</Text>
+              <View style={styles.travellersRow}>
+                <Text style={styles.travellersLabel}>Travellers</Text>
+                <AvatarStack avatars={trip.travellers} size={30} overlap={10} showAdd onAdd={onAddParticipant} />
+              </View>
+            </View>
+            <SegmentedControl activeKey={activeTab} onChange={onTabChange} />
+          </>
+        )}
 
-        {/* 1 — Segmented control (scrolls away) */}
-        <SegmentedControl activeKey={activeTab} onChange={onTabChange} />
-
-        {/* 2 — Date strip — STICKY */}
+        {/* Date strip — STICKY (index shifts based on noHeader) */}
         <View style={styles.dateStripWrapper}>
           <DateStrip
             dates={trip.tripDates}
@@ -135,7 +136,7 @@ export default function ItineraryView({ trip, activeTab, onTabChange, onAddParti
           />
         </View>
 
-        {/* 3 — Content: Add event + timeline */}
+        {/* Content: Add event + timeline */}
         <View style={styles.content}>
 
           {/* Add New Event card */}
@@ -232,11 +233,12 @@ const styles = StyleSheet.create({
 
   // Scroll
   scroll: { flex: 1 },
-  scrollContent: { paddingBottom: 40 },
+  scrollContent: { paddingBottom: 200, minHeight: SCREEN_HEIGHT + 200 },
 
   // Trip meta
   tripMeta: {
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
     gap: 6,
   },

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, radius } from '../theme';
 import AvatarStack from './AvatarStack';
 import { FeedItemData } from '../data/trips';
@@ -10,13 +11,14 @@ import ExpenseIcon from '../assets/Icons/Feed-Item-Icon=Expense-Request.svg';
 type Props = {
   item: FeedItemData;
   isLast?: boolean;
+  onPress?: () => void;
 };
 
 function PhotoThumb() {
   return <View style={[styles.iconBubble, styles.photoThumb]} />;
 }
 
-export default function FeedItem({ item, isLast }: Props) {
+export default function FeedItem({ item, isLast, onPress }: Props) {
   const renderIcon = () => {
     if (item.type === 'poll') {
       return <PollIcon width={44} height={44} />;
@@ -24,11 +26,23 @@ export default function FeedItem({ item, isLast }: Props) {
     if (item.type === 'expense') {
       return <ExpenseIcon width={44} height={44} />;
     }
+    if (item.type === 'participant') {
+      return (
+        <View style={[styles.iconBubble, { backgroundColor: `${colors.brandOrange}20` }]}>
+          <Ionicons name="person-add" size={22} color={colors.brandOrange} />
+        </View>
+      );
+    }
     return <PhotoThumb />;
   };
 
   return (
-    <View style={[styles.row, !isLast && styles.gap]}>
+    <TouchableOpacity
+      style={[styles.row, !isLast && styles.gap]}
+      onPress={onPress}
+      activeOpacity={onPress ? 0.72 : 1}
+      disabled={!onPress}
+    >
       {renderIcon()}
       <View style={styles.content}>
         <View style={styles.titleRow}>
@@ -46,7 +60,7 @@ export default function FeedItem({ item, isLast }: Props) {
           )}
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 

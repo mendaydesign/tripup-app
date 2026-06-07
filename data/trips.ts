@@ -8,7 +8,8 @@ export type Traveller = {
 export type FeedItemData =
   | { id: string; type: 'poll'; title: string; subtitle: string; timestamp: string }
   | { id: string; type: 'expense'; title: string; subtitle: string; timestamp: string; paidAvatars: Traveller[] }
-  | { id: string; type: 'photo'; title: string; subtitle: string; timestamp: string };
+  | { id: string; type: 'photo'; title: string; subtitle: string; timestamp: string }
+  | { id: string; type: 'participant'; title: string; subtitle: string; timestamp: string };
 
 export type TripDate = {
   day: string;
@@ -24,6 +25,15 @@ export type ItineraryEvent = {
   time: string;
   iconType: 'surf' | 'lunch' | 'beach' | 'hotel';
   isNew?: boolean;
+};
+
+export type IncomingExpense = {
+  id: string;
+  name: string;
+  total: number;
+  yourShare: number;
+  paidBy: Traveller;
+  travellers: Traveller[];
 };
 
 export type ChatMessage = {
@@ -60,15 +70,16 @@ export type Trip = {
   tripDates: TripDate[];
   itineraryEvents: ItineraryEvent[];
   chatMessages: ChatMessage[];
+  incomingExpenses: IncomingExpense[];
 };
 
 export const mockTrip: Trip = {
   id: '1',
   name: 'Lisbon Group',
   travellers: [
-    { id: '1', initials: 'HM', color: '#FF9944', name: 'Harry Menday' },
+    { id: '1', initials: 'AR', color: '#FF9944', name: 'Ari' },
     { id: '2', initials: 'LJ', color: '#44AAFF', name: 'Lily Juggins' },
-    { id: '3', initials: 'JB', color: '#FA9DFD', name: 'Joe Boustead' },
+    { id: '3', initials: 'NC', color: '#FA9DFD', name: 'Nic' },
     { id: '4', initials: 'AS', color: '#CF9DFD', name: 'Aidan Stephenson' },
     { id: '5', initials: 'CS', color: '#14AE5C', name: 'Courtney Smith' },
   ],
@@ -78,7 +89,7 @@ export const mockTrip: Trip = {
     { day: '06', month: 'Jun' },
     { day: '07', month: 'Jun' },
     { day: '08', month: 'Jun' },
-    { day: '09', month: 'Jun', notificationCount: 1 },
+    { day: '09', month: 'Jun' },
     { day: '10', month: 'Jun' },
     { day: '11', month: 'Jun' },
     { day: '12', month: 'Jun' },
@@ -91,45 +102,47 @@ export const mockTrip: Trip = {
     { id: 'e6', date: '09', title: 'Back to the hotel', subtitle: 'Time to get ready for our night out!', time: '10pm', iconType: 'hotel' },
   ],
   chatMessages: [
-    { id: 'c1', senderId: '2', text: "Can't believe we're actually going to Lisbon next week! 🎉", timestamp: '09:12' },
-    { id: 'c2', senderId: '3', text: "Same! I've been counting down. What's the plan for day one?", timestamp: '09:13' },
-    { id: 'c3', senderId: '4', text: "I vote we head straight to the beach 🏖️", timestamp: '09:13' },
-    { id: 'c4', senderId: '5', text: "Seconded — drop bags, go straight to Cascais ☀️", timestamp: '09:14' },
-    { id: 'c5', senderId: '1', text: "I'm in. Also has everyone sorted their flights?", timestamp: '09:15' },
-    { id: 'c6', senderId: '2', text: "We're all on the same one right? Heathrow at 7am", timestamp: '09:16' },
-    { id: 'c7', senderId: '4', text: "🫡 Confirmed!", timestamp: '09:16' },
-    { id: 'c8', senderId: '3', text: "Me too — see you all in the departures queue 😂", timestamp: '09:17' },
-    { id: 'c9', senderId: '5', text: "Can't wait! What are we thinking for dinner that first night?", timestamp: '09:18' },
-    { id: 'c10', senderId: '1', text: "Good shout — I'll set up a poll so we can all vote on where to go 🗳️", timestamp: '09:20' },
+    { id: 'c1', senderId: '2', text: "Last night everyone 😭 can't believe how fast this week has gone", timestamp: '19:04' },
+    { id: 'c2', senderId: '3', text: "Genuinely one of the best trips I've ever been on", timestamp: '19:05' },
+    { id: 'c3', senderId: '4', text: "The surfing this morning was unreal — still buzzing from it", timestamp: '19:05' },
+    { id: 'c4', senderId: '5', text: "Same! And that sunset from Miradouro last night... I'm not ready to go home 😩", timestamp: '19:06' },
+    { id: 'c5', senderId: '1', text: "Flight's at 7am though so we can't go too crazy tonight 😅", timestamp: '19:08' },
+    { id: 'c6', senderId: '2', text: "Speak for yourself 😂 what are we thinking for tonight?", timestamp: '19:09' },
+    { id: 'c7', senderId: '4', text: "We HAVE to do a proper last dinner — somewhere special", timestamp: '19:09' },
+    { id: 'c8', senderId: '3', text: "100% — somewhere with a view. We deserve it after this week", timestamp: '19:10' },
+    { id: 'c9', senderId: '5', text: "Yes! Any ideas? There's that rooftop place near the waterfront", timestamp: '19:11' },
+    { id: 'c10', senderId: '1', text: "Let me set up a poll — everyone vote on where we go for our last dinner 🗳️", timestamp: '19:12' },
   ],
   feedItems: [
     {
-      id: '1',
-      type: 'poll',
-      title: 'Poll Created',
-      subtitle: 'Ari created a poll for the group.',
-      timestamp: 'Now',
-    },
-    {
-      id: '2',
+      id: 'feed-lily-surf',
       type: 'expense',
-      title: 'Expense Request: Dinner',
-      subtitle: 'Paid 5/5',
-      timestamp: '5m',
+      title: 'Expense Request: Surfing Lessons',
+      subtitle: 'Lily paid £150 for the group',
+      timestamp: 'Now',
       paidAvatars: [
-        { id: 'p1', initials: 'AR', color: '#FF9944' },
-        { id: 'p2', initials: 'LM', color: '#44AAFF' },
-        { id: 'p3', initials: 'KR', color: '#FA9DFD' },
-        { id: 'p4', initials: 'JD', color: '#CF9DFD' },
-        { id: 'p5', initials: 'SM', color: '#14AE5C' },
+        { id: '1', initials: 'AR', color: '#FF9944' },
+        { id: '2', initials: 'LJ', color: '#44AAFF' },
+        { id: '3', initials: 'NC', color: '#FA9DFD' },
+        { id: '4', initials: 'AS', color: '#CF9DFD' },
+        { id: '5', initials: 'CS', color: '#14AE5C' },
       ],
     },
+  ],
+  incomingExpenses: [
     {
-      id: '3',
-      type: 'photo',
-      title: 'Lily added 5 photos.',
-      subtitle: '5 new photos have been uploaded to the gallery.',
-      timestamp: '12m',
+      id: 'inc1',
+      name: 'Surfing Lessons',
+      total: 150,
+      yourShare: 30,
+      paidBy: { id: '2', initials: 'LJ', color: '#44AAFF', name: 'Lily Juggins' },
+      travellers: [
+        { id: '1', initials: 'AR', color: '#FF9944', name: 'Ari' },
+        { id: '2', initials: 'LJ', color: '#44AAFF', name: 'Lily Juggins' },
+        { id: '3', initials: 'NC', color: '#FA9DFD', name: 'Nic' },
+        { id: '4', initials: 'AS', color: '#CF9DFD', name: 'Aidan Stephenson' },
+        { id: '5', initials: 'CS', color: '#14AE5C', name: 'Courtney Smith' },
+      ],
     },
   ],
 };
