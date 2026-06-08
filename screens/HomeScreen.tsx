@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import {
+  Animated,
+  Dimensions,
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   StyleSheet,
   ImageBackground,
@@ -12,13 +13,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, radius } from '../theme';
 import BrandingLogo from '../assets/Logo/Branding-logo.svg';
 import AvatarStack from '../components/AvatarStack';
+import NotificationsSheet from '../components/NotificationsSheet';
 import { mockTrip, Traveller } from '../data/trips';
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const COLLAPSE_HEIGHT_ESTIMATE = 90;
 
 type TripCard = {
   id: string;
   name: string;
   dateRange: string;
-  imageUri: string;
+  imageUri: string | number;
   travellers: Traveller[];
   isCurrent: boolean;
 };
@@ -26,9 +31,9 @@ type TripCard = {
 const TRIP_CARDS: TripCard[] = [
   {
     id: '1',
-    name: 'Lisbon Madness',
+    name: 'Lisbon Group',
     dateRange: 'Jun 02 – 09',
-    imageUri: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80',
+    imageUri: require('../assets/Images/Lisbon shot.jpg'),
     travellers: mockTrip.travellers,
     isCurrent: true,
   },
@@ -68,81 +73,126 @@ type Props = {
 
 function TripCard({ card, onPress }: { card: TripCard; onPress: () => void }) {
   return (
-    <TouchableOpacity
-      style={styles.card}
-      activeOpacity={0.9}
-      onPress={onPress}
-    >
-      <ImageBackground
-        source={{ uri: card.imageUri }}
-        style={styles.cardImage}
-        imageStyle={{ borderRadius: radius.lg }}
-        resizeMode="cover"
-      >
-        {/* Travellers badge top-right */}
-        <View style={styles.travellersBadge}>
-          <Text style={styles.travellersLabel}>Travellers</Text>
+    <TouchableOpacity style={styles.card} activeOpacity={0.9} onPress={onPress}>
+      <View style={styles.cardInner}>
+        <ImageBackground
+          source={typeof card.imageUri === 'number' ? card.imageUri : { uri: card.imageUri }}
+          style={styles.cardImage}
+          imageStyle={{ borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg }}
+          resizeMode="cover"
+        />
+        <View style={styles.cardBody}>
+          <View style={styles.cardBodyLeft}>
+            <Text style={styles.cardTitle}>{card.name}</Text>
+            <Text style={styles.cardDate}>{card.dateRange}</Text>
+          </View>
           <AvatarStack avatars={card.travellers} size={26} overlap={8} />
         </View>
-
-        {/* Dark overlay + title + date — height driven by content */}
-        <View style={styles.cardFooter}>
-          <Text style={styles.cardTitle}>{card.name}</Text>
-          <Text style={styles.cardDate}>Date: {card.dateRange}</Text>
-        </View>
-      </ImageBackground>
+      </View>
     </TouchableOpacity>
   );
 }
 
 export default function HomeScreen({ onTripPress }: Props) {
   const insets = useSafeAreaInsets();
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
+
+  // Collapsing header animations — same pattern as GroupHomeScreen
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [collapseHeight, setCollapseHeight] = useState(COLLAPSE_HEIGHT_ESTIMATE);
+  const collapseHeightMeasured = useRef(false);
+  const CH = collapseHeight;
+
+  const collapsingHeightAnim = scrollY.interpolate({
+    inputRange: [0, CH],
+    outputRange: [CH, 0],
+    extrapolate: 'clamp',
+  });
+  const collapsingOpacity = scrollY.interpolate({
+    inputRange: [0, CH * 0.7],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+  const logoOpacity = scrollY.interpolate({
+    inputRange: [CH * 0.3, CH * 0.85],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+  const titleOpacity = scrollY.interpolate({
+    inputRange: [CH * 0.3, CH * 0.85],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  const onScrollEvent = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { useNativeDriver: false }
+  );
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      {/* Header — matches GroupHomeScreen layout exactly */}
+
+      {/* Fixed header with logo ↔ "Home" crossfade */}
       <View style={styles.header}>
         <View style={styles.headerBtn} />
-        <BrandingLogo width={80} height={28} />
-        <TouchableOpacity style={styles.headerBtn}>
+        <View style={styles.headerCenter}>
+          <Animated.View style={[styles.headerCenterItem, { opacity: logoOpacity }]}>
+            <BrandingLogo width={80} height={28} />
+          </Animated.View>
+          <Animated.Text style={[styles.headerTitle, { opacity: titleOpacity }]}>
+            Home
+          </Animated.Text>
+        </View>
+        <TouchableOpacity style={styles.headerBtn} onPress={() => setNotificationsVisible(true)}>
           <Ionicons name="notifications-outline" size={24} color={colors.dark} />
         </TouchableOpacity>
       </View>
 
-      {/* User greeting row */}
-      <View style={styles.greetingRow}>
-        <Ionicons name="person-circle" size={58} color={`${colors.dark}20`} />
-        <View style={styles.greetingText}>
-          <Text style={styles.greetingLine}>Welcome Back,</Text>
-          <Text style={styles.greetingName}>Ari</Text>
+      {/* Collapsing greeting row */}
+      <Animated.View style={{ height: collapsingHeightAnim, overflow: 'hidden', opacity: collapsingOpacity }}>
+        <View
+          onLayout={(e) => {
+            const h = Math.round(e.nativeEvent.layout.height);
+            if (!collapseHeightMeasured.current && h > 0) {
+              collapseHeightMeasured.current = true;
+              setCollapseHeight(h);
+            }
+          }}
+        >
+          <View style={styles.greetingRow}>
+            <View style={styles.ariAvatar}>
+              <Text style={styles.ariAvatarText}>AR</Text>
+            </View>
+            <View style={styles.greetingText}>
+              <Text style={styles.greetingLine}>Welcome Back,</Text>
+              <Text style={styles.greetingName}>Ari</Text>
+            </View>
+          </View>
         </View>
-      </View>
+      </Animated.View>
 
-      <ScrollView
+      <Animated.ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { minHeight: SCREEN_HEIGHT + COLLAPSE_HEIGHT_ESTIMATE }]}
         showsVerticalScrollIndicator={false}
+        onScroll={onScrollEvent}
+        scrollEventThrottle={16}
       >
-        {/* Current Trips */}
         <Text style={styles.sectionHeader}>Current Trips</Text>
         {currentTrips.map((card) => (
-          <TripCard
-            key={card.id}
-            card={card}
-            onPress={() => onTripPress(card.id)}
-          />
+          <TripCard key={card.id} card={card} onPress={() => onTripPress(card.id)} />
         ))}
 
-        {/* Upcoming Trips */}
         <Text style={styles.sectionHeader}>Upcoming Trips</Text>
         {upcomingTrips.map((card) => (
-          <TripCard
-            key={card.id}
-            card={card}
-            onPress={() => {}}
-          />
+          <TripCard key={card.id} card={card} onPress={() => {}} />
         ))}
-      </ScrollView>
+      </Animated.ScrollView>
+
+      <NotificationsSheet
+        visible={notificationsVisible}
+        onClose={() => setNotificationsVisible(false)}
+        notifications={[]}
+      />
     </View>
   );
 }
@@ -165,12 +215,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 32,
+  },
+  headerCenterItem: {
+    position: 'absolute',
+  },
+  headerTitle: {
+    ...typography.h3,
+    fontFamily: 'OpenSauceOne-SemiBold',
+    color: colors.dark,
+    textAlign: 'center',
+  },
   greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
     gap: 12,
+  },
+  ariAvatar: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: colors.brandOrange,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ariAvatarText: {
+    ...typography.h2,
+    color: colors.white,
+    fontFamily: 'OpenSauceOne-Bold',
   },
   greetingText: {
     flex: 1,
@@ -201,54 +279,40 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: spacing.lg,
     borderRadius: radius.lg,
-    // Shadow
     shadowColor: colors.dark,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.10,
     shadowRadius: 12,
     elevation: 4,
   },
-  cardImage: {
-    height: 220,
+  cardInner: {
     borderRadius: radius.lg,
     overflow: 'hidden',
-    justifyContent: 'space-between',
-    padding: spacing.sm,
+    backgroundColor: colors.white,
   },
-  travellersBadge: {
+  cardImage: {
+    height: 200,
+  },
+  cardBody: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-end',
-    backgroundColor: `${colors.white}CC`,
-    borderRadius: radius.sm,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    gap: 6,
-  },
-  travellersLabel: {
-    ...typography.label,
-    color: colors.dark,
-    fontFamily: 'OpenSauceOne-SemiBold',
-  },
-  cardFooter: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.brandOrange,
-    borderBottomLeftRadius: radius.lg,
-    borderBottomRightRadius: radius.lg,
-    paddingTop: 10,
-    paddingBottom: spacing.sm,
     paddingHorizontal: spacing.sm,
+    paddingTop: 10,
+    paddingBottom: 14,
+    gap: spacing.sm,
+  },
+  cardBodyLeft: {
+    flex: 1,
+    gap: 3,
   },
   cardTitle: {
     ...typography.h2,
-    color: colors.white,
+    color: colors.dark,
     fontFamily: 'OpenSauceOne-Bold',
   },
   cardDate: {
     ...typography.bodySmall,
-    color: colors.white,
+    color: colors.dark,
+    opacity: 0.5,
   },
 });
